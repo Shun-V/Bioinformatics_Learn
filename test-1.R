@@ -11,7 +11,8 @@ library(ggrepel)
 # ==========================================
 # 2. 基础参数与读取数据
 # ==========================================
-data_dir <- "./A1.Matrix_0"
+# data_dir <- "./A1.Matrix_0"
+data_dir <- "D:/原始数据/sc-seq/A123/A1.Matrix"
 target_gene_name <- "Rhbdd1"
 
 cat("正在读取 10X 数据...\n")
