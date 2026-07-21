@@ -8,6 +8,15 @@ library(Matrix)
 library(ggplot2)
 library(ggrepel)
 
+# 安装 BisManager 以及相关packages
+# install.packages("BiocManager")
+# BiocManager::install(c("clusterProfiler", "org.Hs.eg.db", "enrichplot"))
+
+library(clusterProfiler)
+# library(org.Hs.eg.db) # 人类基因注释数据库
+library(org.Mm.eg.db) # 小鼠基因注释数据库
+library(enrichplot)
+
 # ==========================================
 # 2. 基础参数与读取数据
 # ==========================================
@@ -124,3 +133,84 @@ pdf(file="pie.pdf", width=6, height=5)
 print(p3)
 dev.off()
 cat("饼图 (pie.pdf) 已生成！\n")
+
+
+# ==========================================
+# 7. GO & KEGG分析
+# ==========================================
+
+cat("准备进行富集分析...\n")
+
+# 1. 提取显著差异表达的基因列表 (p.adj < 0.05)
+sig_genes_df <- subset(diff_regulation_df, p.adj < 0.05)
+sig_genes_symbol <- sig_genes_df$gene
+
+# ==========================================
+# A. GO 富集分析 (以 BP 生物学过程为例)
+# ==========================================
+cat("正在运行 GO (BP) 富集分析...\n")
+# 因为我们当前的基因名是 Symbol (如 TP53)，所以 keyType 设为 "SYMBOL"
+ego <- enrichGO(
+  gene          = sig_genes_symbol,
+  keyType       = "SYMBOL",
+  OrgDb         = org.Mm.eg.db,
+  ont           = "BP",      # 可以换成 "CC", "MF" 或 "ALL"
+  pAdjustMethod = "BH",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.2
+)
+
+# 绘制 GO 气泡图
+if (!is.null(ego) && nrow(as.data.frame(ego)) > 0) {
+  pdf("GO_Dotplot.pdf", width=8, height=6)
+  print(dotplot(ego, showCategory=15, title="Top 15 GO Biological Processes"))
+  dev.off()
+  cat("GO 气泡图已保存为 GO_Dotplot.pdf\n")
+} else {
+  cat("提示：没有找到显著富集的 GO 通路。\n")
+}
+
+# ==========================================
+# B. KEGG 富集分析
+# ==========================================
+# KEGG 官方接口通常只认 Entrez ID，所以需要先把 Symbol 转换成 Entrez ID
+cat("正在将 Gene Symbol 转换为 Entrez ID 用于 KEGG 分析...\n")
+gene_id_conversion <- bitr(sig_genes_symbol, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Hs.eg.db")
+
+cat("正在运行 KEGG 富集分析 (需要联网)...\n")
+ekegg <- enrichKEGG(
+  gene          = gene_id_conversion$ENTREZID,
+  organism      = 'mmu',   # hsa 代表人类 (Homo sapiens); mmu 代表小鼠(Mus musculus)
+  pvalueCutoff  = 0.05
+)
+
+# 绘制 KEGG 气泡图
+if (!is.null(ekegg) && nrow(as.data.frame(ekegg)) > 0) {
+  # 把 KEGG 结果里的 Entrez ID 转回普通基因名，方便图表阅读
+  ekegg <- setReadable(ekegg, OrgDb = org.Hs.eg.db, keyType="ENTREZID")
+  
+  pdf("KEGG_Dotplot.pdf", width=8, height=6)
+  print(dotplot(ekegg, showCategory=15, title="Top 15 KEGG Pathways"))
+  dev.off()
+  cat("KEGG 气泡图已保存为 KEGG_Dotplot.pdf\n")
+  
+  # ==========================================
+  # C. 绘制网络图 (Cnetplot) - 以 KEGG 为例
+  # ==========================================
+  # 创建一个带名字的数值向量，用于给网络图的基因节点上色 (Fold Change)
+  fc_vector <- sig_genes_df$FC
+  names(fc_vector) <- sig_genes_df$gene
+  
+  pdf("KEGG_Cnetplot.pdf", width=10, height=8)
+  # 显示排名前 5 的通路，并将基因按照 Fold Change 涂色
+  print(cnetplot(ekegg, showCategory = 5, foldChange = fc_vector, circular = FALSE, colorEdge = TRUE))
+  dev.off()
+  cat("基因-通路网络图已保存为 KEGG_Cnetplot.pdf\n")
+  
+} else {
+  cat("提示：没有找到显著富集的 KEGG 通路。\n")
+}
+
+cat("所有富集分析与绘图完毕！\n")
+
+
