@@ -141,15 +141,20 @@ cat("饼图 (pie.pdf) 已生成！\n")
 
 cat("准备进行富集分析...\n")
 
-# 1. 提取显著差异表达的基因列表 (p.adj < 0.05)
+# 1. 优先使用严格的 p.adj，如果基因太少，则自动降级使用 pvalue 探索趋势
 sig_genes_df <- subset(diff_regulation_df, p.adj < 0.05)
-sig_genes_symbol <- sig_genes_df$gene
+
+if (nrow(sig_genes_df) < 10) {
+    cat("警告：p.adj < 0.05 过滤后的显著基因过少 (", nrow(sig_genes_df), "个)。\n")
+    cat("已自动降级使用原始 pvalue < 0.05 进行探索性富集分析...\n")
+    sig_genes_df <- subset(diff_regulation_df, p.value < 0.05)
+}
 
 # ==========================================
 # A. GO 富集分析 (以 BP 生物学过程为例)
 # ==========================================
 cat("正在运行 GO (BP) 富集分析...\n")
-# 因为我们当前的基因名是 Symbol (如 TP53)，所以 keyType 设为 "SYMBOL"
+# keyType 设为 "SYMBOL"
 ego <- enrichGO(
   gene          = sig_genes_symbol,
   keyType       = "SYMBOL",
@@ -175,7 +180,7 @@ if (!is.null(ego) && nrow(as.data.frame(ego)) > 0) {
 # ==========================================
 # KEGG 官方接口通常只认 Entrez ID，所以需要先把 Symbol 转换成 Entrez ID
 cat("正在将 Gene Symbol 转换为 Entrez ID 用于 KEGG 分析...\n")
-gene_id_conversion <- bitr(sig_genes_symbol, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Hs.eg.db")
+gene_id_conversion <- bitr(sig_genes_symbol, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
 
 cat("正在运行 KEGG 富集分析 (需要联网)...\n")
 ekegg <- enrichKEGG(
@@ -187,7 +192,7 @@ ekegg <- enrichKEGG(
 # 绘制 KEGG 气泡图
 if (!is.null(ekegg) && nrow(as.data.frame(ekegg)) > 0) {
   # 把 KEGG 结果里的 Entrez ID 转回普通基因名，方便图表阅读
-  ekegg <- setReadable(ekegg, OrgDb = org.Hs.eg.db, keyType="ENTREZID")
+  ekegg <- setReadable(ekegg, OrgDb = org.Mm.eg.db, keyType="ENTREZID")
   
   pdf("KEGG_Dotplot.pdf", width=8, height=6)
   print(dotplot(ekegg, showCategory=15, title="Top 15 KEGG Pathways"))
@@ -203,7 +208,8 @@ if (!is.null(ekegg) && nrow(as.data.frame(ekegg)) > 0) {
   
   pdf("KEGG_Cnetplot.pdf", width=10, height=8)
   # 显示排名前 5 的通路，并将基因按照 Fold Change 涂色
-  print(cnetplot(ekegg, showCategory = 5, foldChange = fc_vector, circular = FALSE, colorEdge = TRUE))
+  print(cnetplot(ekegg, showCategory = 5, foldChange = fc_vector))
+  # print(cnetplot(ekegg, showCategory = 5, foldChange = fc_vector, circular = FALSE, colorEdge = TRUE)) # 在新版本中，后两个参数被淘汰了
   dev.off()
   cat("基因-通路网络图已保存为 KEGG_Cnetplot.pdf\n")
   
