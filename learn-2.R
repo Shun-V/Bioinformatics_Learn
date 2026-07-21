@@ -17,7 +17,6 @@ library(org.Hs.eg.db) # 人类基因注释数据库
 # ==========================================
 cat("正在读入大型稀疏矩阵...\n")
 raw_matrix <- readMM("matrix.mtx")
-
 genes <- read.delim("features.tsv", header = FALSE, stringsAsFactors = FALSE)
 barcodes <- read.delim("barcodes.tsv", header = FALSE, stringsAsFactors = FALSE)
 
@@ -49,7 +48,7 @@ if (!(target_gene %in% rownames(filtered_matrix))) {
 }
 
 cat(paste("开始对", target_gene, "(TGFB1) 进行虚拟敲除...\n"))
-# 注意：这一步在 M4 Pro 上预计耗时 30分钟 ~ 1.5小时
+# 注意：这一步预计耗时 6 ~ 8 小时
 lung_result <- scTenifoldKnk(countMatrix = filtered_matrix, gKO = target_gene)
 
 # ==========================================
@@ -131,7 +130,7 @@ dev.off()
 
 
 # ==========================================
-# 7. 进阶生物学意义分析 (GO 富集气泡图)
+# 7. 测试GO 富集气泡图
 # ==========================================
 cat("开始执行 GO 生物学通路富集分析...\n")
 

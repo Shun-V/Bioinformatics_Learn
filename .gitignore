@@ -1,2 +1,6 @@
 *.h5ad
 *.mtx
+*.pdf
+.DS_store
+A1.Matrix
+A1.Matrix_0
