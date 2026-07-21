@@ -59,6 +59,9 @@ cat("敲除分析完成！\n")
 diff_regulation_df <- results$diffRegulation
 diff_regulation_df <- diff_regulation_df[order(diff_regulation_df$p.adj), ]
 
+#从结果中移除敲除基因
+diff_regulation_df <- diff_regulation_df[diff_regulation_df$gene != target_gene_name, ]
+
 cat("受影响最严重的前 20 个基因如下：\n")
 print(head(diff_regulation_df, 20))
 
